@@ -63,7 +63,8 @@ void main() {
     timeout.tv_sec = 5;
     timeout.tv_usec = 5000; // microsecond
 
-    if ((select_result = select(0, &cpyreads, 0, 0, &timeout)) == SOCKET_ERROR) { // select에러 -1 select read만 관찰
+    if ((select_result = select(0, &cpyreads, 0, 0, &timeout)) == SOCKET_ERROR) { // select에러 -1 select read만 관찰 
+      //***변화가 생긴 디스크립터 제외하고 0으로초기화됨 cpyreads쓰는이유 예) 0 0 0 1 0 0.... 변화된것만 찾는다!
       err_handling("select err");
       break;
     }
@@ -74,7 +75,7 @@ void main() {
     }
     // select 함수가 1 이상으로 반환
     for (int i = 0; i < reads.fd_count; i++) {
-      if (FD_ISSET(reads.fd_array[i], &cpyreads)) { //  변화가 있는 소켓디스크립터 찾기
+      if (FD_ISSET(reads.fd_array[i], &cpyreads)) { //  변화가 있는 소켓디스크립터 찾기(cpyreads에는 현재!변화한 디스크립터만 있다)
         if (reads.fd_array[i] == servSock) { // 변화가 서버일때 ( 클라이언트 연결 시도)
           printf("reads.fd_array[%d] = %d\n", i, reads.fd_array[i]);
           int size = sizeof(clntAddr);
@@ -82,7 +83,7 @@ void main() {
           FD_SET(clntSock, &reads); // fd_set형 변수 reads에 clntsock 소켓 디스크립터 정보 등록
           printf("connected client = %d\n", clntSock);
         }
-        else {
+        else { //변화가 서버가 아닐때 즉, 연결된 클라이언트로부터 데이터를 받을때
           int recv_size;
           printf("reads.fd_array[%d] = %d\n", i, reads.fd_array[i]);
           recv_size = recv(reads.fd_array[i], buf, BUFSIZ, 0);
