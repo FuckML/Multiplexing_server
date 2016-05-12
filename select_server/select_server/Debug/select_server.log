@@ -1,0 +1,3 @@
+﻿  Select_server.cpp
+c:\users\seungmin\documents\github\socket_selectserver\select_server\select_server\select_server.cpp(75): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+  select_server.vcxproj -> C:\Users\SeungMin\Documents\GitHub\Socket_selectserver\select_server\Debug\select_server.exe
