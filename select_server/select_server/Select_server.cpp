@@ -55,14 +55,15 @@ void main() {
 
   cout << "servsock num : " << servSock << endl;
   cout << "reads.fd_array[0] : " << reads.fd_array[0] << endl;
+  cout << "fdcount : " << reads.fd_count;
   //cout << reads.fd_array[1];
   while (1) {
     cpyreads = reads; // 원본 보존을 위한 디스크립터 카피
 
     timeout.tv_sec = 5;
-    timeout.tv_usec = 0; // microsecond
+    timeout.tv_usec = 5000; // microsecond
 
-    if (select_result = select(0, &cpyreads, 0, 0, &timeout) == SOCKET_ERROR) { // select에러 -1 select read만 관찰
+    if ((select_result = select(0, &cpyreads, 0, 0, &timeout)) == SOCKET_ERROR) { // select에러 -1 select read만 관찰
       err_handling("select err");
       break;
     }
@@ -74,16 +75,19 @@ void main() {
     // select 함수가 1 이상으로 반환
     for (int i = 0; i < reads.fd_count; i++) {
       if (FD_ISSET(reads.fd_array[i], &cpyreads)) { //  변화가 있는 소켓디스크립터 찾기
-        if (reads.fd_array[i] == servSock) {
+        if (reads.fd_array[i] == servSock) { // 변화가 서버일때 ( 클라이언트 연결 시도)
+          printf("reads.fd_array[%d] = %d\n", i, reads.fd_array[i]);
           int size = sizeof(clntAddr);
           clntSock = accept(servSock, (SOCKADDR*)&clntAddr, &size);
-          FD_SET(clntSock, &reads);
+          FD_SET(clntSock, &reads); // fd_set형 변수 reads에 clntsock 소켓 디스크립터 정보 등록
           printf("connected client = %d\n", clntSock);
         }
         else {
           int recv_size;
+          printf("reads.fd_array[%d] = %d\n", i, reads.fd_array[i]);
           recv_size = recv(reads.fd_array[i], buf, BUFSIZ, 0);
           if (recv_size == 0) {
+
             FD_CLR(reads.fd_array[i], &reads);
             closesocket(cpyreads.fd_array[i]);
             printf("closed client %d \n", cpyreads.fd_array[i]);
