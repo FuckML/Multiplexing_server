@@ -16,7 +16,7 @@ using namespace std;
 
 //typedef struct fd_set { (윈도우 형 fdset)
 //  u_int fd_count;               /* how many are SET? */
-//  SOCKET  fd_array[FD_SETSIZE];   /* an array of SOCKETs */
+//  SOCKET  fd_array[FD_SETSIZE];   /* an array of SOCKETs */*********** 윈도우 소켓 디스크립터는 리눅스와달리 예측불가능(랜덤생성) 그래서 배열에 쳐넣음
 //} fd_set;
 
 void err_handling(char *msg) {
@@ -29,7 +29,8 @@ void main() {
   SOCKET servSock, clntSock;
   SOCKADDR_IN servAddr, clntAddr;
   struct timeval timeout; // select함수는 변화가 생겨야 return하는데 변화가 생기지않으면 무한 blocking상태에 머물기 때문에 timeout 시간을 지정
-  fd_set reads, cpyreads; // 소켓 디스크립터의 범위
+  fd_set reads, cpyreads; // 소켓 디스크립터의 
+  fd_set except, cpyexcept; // OOB(Out-of-band)(긴급) 데이터도 일반적이지 않은 흐름이기 때문에 수신도 예외사항에 해당
   int select_result;
   char buf[BUFSIZ];
 
@@ -51,7 +52,9 @@ void main() {
   }
 
   FD_ZERO(&reads); // fd_set 변수 초기화
+  FD_ZERO(&except);
   FD_SET(servSock, &reads); // 데이터 수신여부를 관찰하는 대상에 서버소켓 포함 ( 서버소켓으로 수신된 데이터가 있다 = 클라이언트로부터 연결요청이 있다)
+  FD_SET(servSock, &except); // 데이터 예외사항 관찰대상에 서버소켓 포함
 
   cout << "servsock num : " << servSock << endl;
   cout << "reads.fd_array[0] : " << reads.fd_array[0] << endl;
@@ -59,11 +62,12 @@ void main() {
   //cout << reads.fd_array[1];
   while (1) {
     cpyreads = reads; // 원본 보존을 위한 디스크립터 카피
+    cpyexcept = except;
 
     timeout.tv_sec = 5;
     timeout.tv_usec = 5000; // microsecond
 
-    if ((select_result = select(0, &cpyreads, 0, 0, &timeout)) == SOCKET_ERROR) { // select에러 -1 select read만 관찰 
+    if ((select_result = select(0, &cpyreads, 0, &cpyexcept, &timeout)) == SOCKET_ERROR) { // select에러 -1 select read만 관찰 
       //***변화가 생긴 디스크립터 제외하고 0으로초기화됨 cpyreads쓰는이유 예) 0 0 0 1 0 0.... 변화된것만 찾는다!
       err_handling("select err");
       break;
@@ -75,6 +79,10 @@ void main() {
     }
     // select 함수가 1 이상으로 반환
     for (int i = 0; i < reads.fd_count; i++) {
+      /*if (FD_ISSET(servSock, &cpyexcept)) {
+        recv(servSock, buf, BUFSIZ, MSG_OOB);
+        printf("Urgent message : %s\n", buf);
+      }*/
       if (FD_ISSET(reads.fd_array[i], &cpyreads)) { //  변화가 있는 소켓디스크립터 찾기(cpyreads에는 현재!변화한 디스크립터만 있다)
         if (reads.fd_array[i] == servSock) { // 변화가 서버일때 ( 클라이언트 연결 시도)
           printf("reads.fd_array[%d] = %d\n", i, reads.fd_array[i]);
@@ -87,6 +95,7 @@ void main() {
           int recv_size;
           printf("reads.fd_array[%d] = %d\n", i, reads.fd_array[i]);
           recv_size = recv(reads.fd_array[i], buf, BUFSIZ, 0);
+          printf("recved message : %s", buf);
           if (recv_size == 0) {
 
             FD_CLR(reads.fd_array[i], &reads);
